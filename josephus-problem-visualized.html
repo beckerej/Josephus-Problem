@@ -1,0 +1,229 @@
+<html>
+    <head>
+    </head>
+    <body>            
+        <h1>Josephus Permutation Visualized</h1>
+
+        <p>
+            People: <input type="number" id="People" value="12">
+            <button onclick="SpawnTable()">Spawn Table</button>
+            <button onclick="HardStep()">Step</button>
+            <button onclick="Calculate()">Calculate</button>
+            <button onclick="ToggleSimulate()">Open Simulation</button>
+            <p id="Warning" style="color:red;"></p>
+        </p>
+
+        <p id="SimulateSettings">
+            Rounds per second: <input type="number" id="Delay" value="0.2">
+            People From: <input type="number" id="Start" value="1">
+            To: <input type="number" id="Finish" value="100">
+            <button onclick="Simulate()">Simulate</button>
+        </p>
+
+        <canvas id="josephusCanvas" width="750" height="500" style="border:1px solid #d3d3d3;">
+            Your browser does not support the HTML5 canvas tag.
+        </canvas>
+
+        <textarea id="Winners">People - Person</textarea>
+
+        <script>
+            _canvas = document.getElementById("josephusCanvas");
+            const PI=Math.PI;
+            _simulateSettings=false;
+            _isStepping=false;
+            _index=0;
+            _kill=-1;
+            _tick=0;
+            _winner="";
+            _warningText="";
+            _people=[];
+
+            let Draw = () => {
+                console.clear();
+                if(_tick===0) 
+                    Initialize();
+                _canvas = document.getElementById("josephusCanvas");
+                let people = parseInt(document.getElementById("People").value);
+                if(people < 0) 
+                    return;                
+                if (people !== _people.length) 
+                    SetPeople(people, _canvas.width, _canvas.height, 50);
+                let context = _canvas.getContext("2d");
+                DrawClear(context); 
+                DrawSimulateSettings();
+                DrawPeople(context); 
+                DrawWinner(context); 
+                DrawKill(context);
+                DrawWarning();
+                console.log("%cTick: " + _tick++ + ", Delay: " + delay + ", People: " + people, "color: green");
+            }
+
+            let AppendToWinnerList = () => {
+                document.getElementById("Winners").innerHTML += "\n" + document.getElementById("People").value + " - " + _winner + "";
+            }
+
+            let DrawClear = (context) => { 
+                context.clearRect(0, 0, _canvas.width, _canvas.height); 
+            }
+
+            let DrawPeople = (context) => { 
+                _people.forEach((person, i) => { 
+                    DrawPerson(context,{x:person.x,y:person.y},person.color) 
+                });
+            }
+
+            let DrawKill = (context) => {
+                if(_kill > 0){
+                    context.font = "20px Arial";
+                    context.textAlign = "center";
+                    context.fillStyle = "red";
+                    context.fillText("Killed " + _kill , _people[_kill].x+50, _people[_kill].y);
+                }
+            }
+
+            let DrawWarning = () => {
+                var simulateSettings = document.getElementById("Warning")
+                var start = parseInt(document.getElementById("Start").value);
+                var finish = parseInt(document.getElementById("Finish").value);
+                if(finish < start){
+                    _warningText = "Error 01: Finish must be greater than Start value."
+                }
+                if(start < 1){
+                    _warningText = "Error 02: Start must be greater than 0."
+                }
+                else
+                    _warningText = "";
+                document.getElementById("Warning").innerHTML = _warningText;
+            }
+
+            let DrawSimulateSettings = () => {
+                var simulateSettings = document.getElementById("SimulateSettings")
+                if(_simulateSettings) simulateSettings.style.display = 'block'
+                else simulateSettings.style.display = 'none';
+            }
+
+            let DrawPerson = (context, pt, color) => {
+                context.beginPath();
+                context.arc(pt.x, pt.y, 10, 0, 2*PI);
+                context.fillStyle = color;
+                context.fill();
+                context.lineWidth = 3;
+                context.stroke();
+            }
+
+            let DrawWinner = (context) => {
+                if(_winner !== ""){
+                    context.font = "30px Arial";
+                    context.textAlign = "center";
+                    context.fillStyle = "green";
+                    context.fillText("Person " + _winner,_canvas.width/2,_canvas.height/2)
+                }
+            }
+
+            let SetLocation = (n,i,c,r) => {
+                _people[i] = {
+                    x: c.x+(r*Math.sin(((2*PI)/n)*i)), 
+                    y: c.y+(-r*Math.cos(((2*PI)/n)*i)), 
+                    color: "white",
+                    kill: false,
+                    winner: false
+                };
+            };
+
+            let SetPeople = (people, width, height, heightMargin) => {
+                _winner = "";
+                _kill = -1;
+                let center = { x: width/2, y: height/2 };
+                let radius = (height-heightMargin)/2;
+                for(let person=0; person<people; person++)
+                    SetLocation(people, person, center, radius);
+                _people = _people.slice(0,people);
+                // Calculate(); // TODO: Setting - actively-Calculate
+                console.log("%cCenter: (" + center.x + "," + center.y + "), Radius: " + radius, "color: blue");
+            }
+
+            let SetWinner = (index) => { 
+                _isStepping = false;
+                _people[index-1].color = "green";
+                _winner = index;
+            }
+
+            let ClearPeople = () => { 
+                _people.forEach(i=>{ 
+                    i.color = "white"; 
+                });
+            }
+            
+            let Initialize = () => { 
+                SetPeople(parseInt(document.getElementById("People").value), _canvas.width, _canvas.height, 50); 
+            }
+
+            let Calculate = () => {
+                _index = 0;
+                _kill = -1;
+                _winner = "";
+                _isStepping = true;
+                ClearPeople();
+                while(_isStepping){ _people.forEach((person, i) => { if (person.color === "white" || person.color === "blue") Step(i); }); }
+            }
+
+            let Simulate = () => {
+                if(_warningText == "")
+                {
+                    var start = parseInt(document.getElementById("Start").value);
+                    var finish = parseInt(document.getElementById("Finish").value);
+                    for(let i=start; i<=finish; i++){
+                        SetPeople(i, _canvas.width, _canvas.height, 50); 
+                        document.getElementById("People").value = i;
+                        Calculate();
+                        AppendToWinnerList();
+                    }
+                }
+                else
+                    alert("There must be no errors or warnings...");
+            }
+
+            let ToggleSimulate = () => {
+                _simulateSettings = !_simulateSettings;
+            }
+
+            let HardStep = () => {
+                if(!_isStepping)
+                    if(_people[_index%_people.length].color === "white" || _people[_index%_people.length].color === "blue") Step(_index++%_people.length);
+                    else while(_people[_index%_people.length].color !== "white" && _people[_index%_people.length].color !== "blue") _index++;
+                else
+                {
+                    if(_winner !== "")
+                        alert("A winner has already been decided. Clearing... ");
+                    ClearPeople()
+                    _index=0;
+                    _isStepping = true;
+                    _winner = "";
+                    _kill = -1;
+                }
+            }
+
+            let Step = (step) => {
+                let context = document.getElementById("josephusCanvas").getContext("2d");
+
+                last = true;
+                _people[step].color = "blue";
+                for (let index=step+1; index<_people.length+step; index++){
+                    if (_people[index%_people.length].color === "white" || _people[index%_people.length].color === "blue"){
+                        _people[index%_people.length].color = "red";
+                        _kill = index%_people.length;
+                        last = false;
+                        break;
+                    }
+                }
+                if (last) SetWinner(step+1);
+
+                DrawPeople(context);
+                console.log("Stepping through " + (step+1), "color: red");
+            }
+
+            setInterval(Draw, 100);
+            //let delay = parseFloat(document.getElementById("delay").value);
+        </script>
+    </body>
+</html>
